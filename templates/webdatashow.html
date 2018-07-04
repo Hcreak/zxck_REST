@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>智学创客管理WEB</title>
+    <link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+    <script>
+        var today;
+        var year;
+        var month;
+        var day;
+        var hours;
+        var minutes;
+        var seconds;
+
+        $(document).ready(function () {
+            showTime();
+            setInterval("showTime()", 1000);
+            computetime();
+            setInterval("computetime()",30000);
+        });
+
+        function showTime() {
+
+            today = new Date();
+            year = today.getFullYear();
+            month = today.getMonth() + 1;
+            day = today.getDate();
+            hours = today.getHours();
+            minutes = today.getMinutes();
+            seconds = today.getSeconds();
+
+            month = month < 10 ? "0" + month : month;
+            day = day < 10 ? "0" + day : day;
+            hours = hours < 10 ? "0" + hours : hours;
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+            var str = year + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
+            var obj = document.getElementById("time");
+            obj.innerHTML = str;
+        }
+
+        function computetime() {
+            {% for item in itemlist %}
+                var hour_start_{{ loop.index }} = "{{ item['time'] }}".substr(0, 2);
+                var hour_end_{{ loop.index }} = "{{ item['time'] }}".substr(11, 2);
+                var minute_start_{{ loop.index }} = "{{ item['time'] }}".substr(3, 2);
+                var minute_end_{{ loop.index }} = "{{ item['time'] }}".substr(14, 2);
+
+                if (hours < hour_start_{{ loop.index }} || (hours == hour_start_{{ loop.index }} && minutes < minute_start_{{ loop.index }})) {
+                    $('#tr-{{ loop.index }}').removeClass();
+                    $('#text-{{ loop.index }}').text('未开始')
+                }
+                else {
+                    if (hours > hour_end_{{ loop.index }} || (hours == hour_end_{{ loop.index }} && minutes > minute_end_{{ loop.index }})) {
+                        $('#tr-{{ loop.index }}').removeClass();
+                        $('#tr-{{ loop.index }}').addClass('warning');
+                        $('#text-{{ loop.index }}').text('已结束')
+                    }
+                    else {
+                        $('#tr-{{ loop.index }}').removeClass();
+                        $('#tr-{{ loop.index }}').addClass('info');
+                        $('#text-{{ loop.index }}').text('正在上课')
+                    }
+                }
+
+            {% endfor %}
+        }
+
+    </script>
+
+</head>
+<body>
+
+<h1 id="time"></h1><br><br>
+
+
+<table class="table">
+    {% for item in itemlist %}
+        <tr id="tr-{{ loop.index }}">
+            <th>{{ loop.index }}</th>
+            <td>{{ item['name'] }}</td>
+            <td>{{ item['address'] }}</td>
+            <td>{{ item['date'] }}</td>
+            <td>{{ item['time'] }}</td>
+            <td id="text-{{ loop.index }}"></td>
+        </tr>
+    {% endfor %}
+</table>
+</body>
+</html>

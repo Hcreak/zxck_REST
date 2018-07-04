@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>智学创客管理WEB</title>
+    <link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<nav>
+    <ul class="nav nav-pills">
+        <li role="presentation"><a href="/">首页</a></li>
+        <li role="presentation"><a href="/webstudent">学生管理</a></li>
+        <li role="presentation" class="active"><a href="/webclass">课程管理</a></li>
+        <li role="presentation"><a href="/webdatashow" target="_blank">数据展示</a></li>
+        <li role="presentation"><a href="/webdatacompute">数据分析</a></li>
+    </ul>
+</nav>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>课程编号</th>
+            <th>课程名称</th>
+            <th>上课地址</th>
+            <th>上课日期</th>
+            <th>上课时间</th>
+            <th>添加时间</th>
+            <th>选课人数</th>
+            <th><a href="/webaddclass"><button type="button" class="btn btn-primary">添加课程</button></a></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for item in itemlist %}
+        <tr>
+            <th>{{ item['id'] }}</th>
+            <td>{{ item['name'] }}</td>
+            <td>{{ item['address'] }}</td>
+            <td>{{ item['date'] }}</td>
+            <td>{{ item['time'] }}</td>
+            <td>{{ item['adddate'] }}</td>
+            <td><a href=# onclick="javascript:window.open('/webclass/{{ item['id'] }}','','width=632,height=450,toolbar=no, status=no, menubar=no, resizable=yes, scrollbars=yes');return false;">{{ item['sum'] }}</a></td>
+            <td><a href="/webdeleteclass/{{ item['id'] }}">删除</a></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>

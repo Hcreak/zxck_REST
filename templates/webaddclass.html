@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>智学创客管理WEB</title>
+    <link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <a href="/webclass"><button type="button" class="btn btn-primary">返回</button></a>
+    <br>
+    <form method="post" action="/webaddclass">
+        <div class="form-group">
+        <label for="exampleInputname">课程名称</label>
+        <input type="text" class="form-control" id="exampleInputname" name="name">
+        </div>
+        <div class="form-group">
+        <label for="exampleInputaddress">上课地址</label>
+        <input type="text" class="form-control" id="exampleInputaddress" name="address">
+        </div>
+        <div class="form-group">
+        <label for="exampleInputdate">上课日期</label>
+        <input type="text" id="exampleInputdate" name="date" class="form-control">
+        </div>
+        <div class="form-group">
+        <label for="exampleInputtime">上课时间</label>
+        <input type="text" id="exampleInputtime" name="time" class="form-control">
+        </div>
+        <script src="{{ url_for('static',filename='laydate/laydate.js') }}"></script>
+        <script>
+        laydate.render({
+            elem: '#exampleInputdate'
+            ,range: true
+        });
+        laydate.render({
+            elem: '#exampleInputtime'
+            ,type: 'time'
+            ,range: true
+        });
+        </script>
+        <button type="submit" class="btn btn-default">Submit</button>
+    </form>
+</body>
+</html>
