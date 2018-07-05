@@ -498,14 +498,14 @@ def wxpay():
     :return:
     '''
     if request.method == 'POST':
-        data = xml_to_dict(request.data)
+        rdata = xml_to_dict(request.data)
         f = open('wxpay.log', 'a+')
-        f.write(json.dumps(data))
+        f.write(json.dumps(rdata))
         f.close()
 
-        data = db.select("SELECT sid FROM t_wxid WHERE openid = '{}'".format(data['openid']))
+        data = db.select("SELECT sid FROM t_wxid WHERE openid = '{}'".format(rdata['openid']))
         sid = data[0][0]
-        r.set(sid, data['attach'])
+        r.set(sid, rdata['attach'])
 
         # logging.info(xml_to_dict(request.data))
         result_data = {
