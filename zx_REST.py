@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 
 from config import *
 from wxpay import WxPay, get_nonce_str, dict_to_xml, xml_to_dict
+from olimysql import olimysql
 
 reload(sys)
 sys.setdefaultencoding('utf8')
@@ -36,8 +37,9 @@ admin_password = '1'
 # mysql config
 ###############
 # db = pymysql.connect("localhost", "zxck", "zhixuechuangke++", "zxck")
-db = pymysql.connect("116.255.247.68", "zxck", "1", "zxck")
-cursor = db.cursor()
+# db = pymysql.connect("116.255.247.68", "zxck", "1", "zxck")
+# db = olimysql("116.255.247.68", "zxck", "1", "zxck")
+db = olimysql("127.0.0.1", "zxck", "zhixuechuangke++", "zxck")
 
 # redis config
 ###############
@@ -69,9 +71,8 @@ def getopenid(code):
 
 
 def wxid_add(sid, openid, gx):
-    cursor.execute(
+    db.insert(
         "INSERT INTO t_wxid(sid,openid,gx,adddate) VALUE ('{}','{}','{}','{}')".format(sid, openid, gx, time.time()))
-    db.commit()
 
 
 def selectclass(cid='all'):
@@ -79,15 +80,17 @@ def selectclass(cid='all'):
         # print cid
         execstr = "SELECT c.id,c.name,c.address,c.date,c.time FROM t_class c WHERE " + (
             ' or '.join('c.id=' + str(i) for i in cid))
-        cursor.execute(execstr)
+        data = db.select(execstr)
+        print data
     else:
-        cursor.execute("SELECT c.id,c.name,c.address,c.date,c.time FROM t_class c")
+        data = db.select("SELECT c.id,c.name,c.address,c.date,c.time,c.pageurl FROM t_class c")
 
     itemlist = [{'id': i[0],
                  'name': i[1],
                  'address': i[2],
                  'date': i[3],
-                 'time': i[4]} for i in cursor.fetchall()]
+                 'time': i[4],
+                 'pageurl': '' if len(i)==5 else i[5]} for i in data]
     return itemlist
 
 
@@ -107,8 +110,8 @@ def keygetsid(method):
 
 
 def getstudentphoto(sid):
-    cursor.execute("SELECT photo FROM t_student WHERE id = {}".format(sid))
-    photo = cursor.fetchone()[0]
+    data = db.select("SELECT photo FROM t_student WHERE id = {}".format(sid))
+    photo = data[0][0]
     if photo == None:
         return 'error'
     else:
@@ -138,14 +141,13 @@ def webindex():
 @app.route('/webstudent', methods=['GET'])
 def webstudent():
     if checkkey() == True:
-        cursor.execute("SELECT * FROM t_student")
+        data = db.select("SELECT id,name,phonenumber,sex,age,adddate FROM t_student")
         itemlist = [{'id': i[0],
                      'name': i[1],
                      'phonenumber': i[2],
                      'sex': i[3],
                      'age': i[4],
-                     'adddate': outstrtime(i[5])} for i in
-                    cursor.fetchall()]
+                     'adddate': outstrtime(i[5])} for i in data]
 
         return render_template('webstudent.html', itemlist=itemlist)
     else:
@@ -155,8 +157,8 @@ def webstudent():
 @app.route('/webstudent/<id>', methods=['GET'])
 def webstudentid(id):
     if checkkey() == True:
-        cursor.execute("SELECT * FROM t_student WHERE id = {}".format(id))
-        i = cursor.fetchone()
+        data = db.select("SELECT id,name,phonenumber,sex,age,adddate FROM t_student WHERE id = {}".format(id))
+        i = data[0]
         item = {'id': i[0],
                 'name': i[1],
                 'phonenumber': i[2],
@@ -165,20 +167,18 @@ def webstudentid(id):
                 'adddate': outstrtime(i[5]),
                 'photo': getstudentphoto(id)}
 
-        cursor.execute("SELECT id,openid,gx,adddate FROM t_wxid where sid = {}".format(id))
+        data = db.select("SELECT id,openid,gx,adddate FROM t_wxid where sid = {}".format(id))
         item['wx'] = [{'id': w[0],
                        'openid': w[1],
                        'gx': w[2],
-                       'adddate': outstrtime(w[3])} for w in
-                      cursor.fetchall()]
+                       'adddate': outstrtime(w[3])} for w in data]
 
-        cursor.execute(
+        data = db.select(
             "SELECT x.id,x.cid,c.name,x.adddate FROM t_xkb x JOIN t_class c ON x.cid=c.id WHERE x.sid = {}".format(id))
         item['xk'] = [{'id': x[0],
                        'cid': x[1],
                        'name': x[2],
-                       'adddate': outstrtime(x[3])} for x in
-                      cursor.fetchall()]
+                       'adddate': outstrtime(x[3])} for x in data]
 
         return render_template('webstudentid.html', item=item)
     else:
@@ -188,8 +188,7 @@ def webstudentid(id):
 @app.route('/webdeletestudent/<id>', methods=['GET'])
 def webdeletestudent(id):
     if checkkey() == True:
-        cursor.execute("DELETE FROM t_student WHERE id = {}".format(id))
-        db.commit()
+        db.delete("DELETE FROM t_student WHERE id = {}".format(id))
         return redirect('/webstudent')
     else:
         return abort(404)
@@ -201,11 +200,10 @@ def webaddstudent():
         if request.method == 'GET':
             return render_template('webaddstudent.html')
         if request.method == 'POST':
-            cursor.execute(
+            db.insert(
                 "INSERT INTO t_student(name,phonenumber,sex,age,adddate) VALUE ('{}','{}','{}','{}','{}')".format(
                     request.form['name'], request.form['phonenumber'], request.form['sex'], request.form['age'],
                     time.time()))
-            db.commit()
             return redirect('/webstudent')
     else:
         return abort(404)
@@ -215,16 +213,15 @@ def webaddstudent():
 def websaddc(id):
     if checkkey() == True:
         if request.method == 'GET':
-            cursor.execute("SELECT id,name,date FROM t_class")
+            data = db.select("SELECT id,name,date FROM t_class")
             itemlist = [{'id': i[0],
                          'name': i[1],
-                         'date': i[2]} for i in cursor.fetchall()]
+                         'date': i[2]} for i in data]
 
             return render_template('websaddc.html', id=id, itemlist=itemlist)
         if request.method == 'POST':
-            cursor.execute("INSERT INTO t_xkb(sid,cid,adddate) VALUE ({},{},{})".format(id, request.form['classRadios'],
-                                                                                        time.time()))
-            db.commit()
+            db.insert("INSERT INTO t_xkb(sid,cid,adddate) VALUE ({},{},{})".format(id, request.form['classRadios'],
+                                                                                   time.time()))
             return redirect('/webstudent/{}'.format(id))
     else:
         return abort(404)
@@ -233,35 +230,44 @@ def websaddc(id):
 @app.route('/webclass', methods=['GET'])
 def webclass():
     if checkkey() == True:
-        cursor.execute(
-            "SELECT c.id,c.name,c.address,c.date,c.time,c.adddate,count(x.id) FROM t_class c LEFT JOIN t_xkb x ON x.cid=c.id GROUP BY c.id")
+        data = db.select(
+            "SELECT c.id,c.name,c.address,c.date,c.time,c.adddate,count(x.id),c.money FROM t_class c LEFT JOIN t_xkb x ON x.cid=c.id GROUP BY c.id")
         itemlist = [{'id': i[0],
                      'name': i[1],
                      'address': i[2],
                      'date': i[3],
                      'time': i[4],
                      'adddate': outstrtime(i[5]),
-                     'sum': i[6]} for i in cursor.fetchall()]
+                     'money': i[7],
+                     'sum': i[6]} for i in data]
 
         return render_template('webclass.html', itemlist=itemlist)
     else:
         return abort(404)
 
 
-@app.route('/webclass/<id>', methods=['GET'])
+@app.route('/webclass/<id>', methods=['GET', 'POST'])
 def webclassid(id):
     if checkkey() == True:
-        cursor.execute(
-            "SELECT x.id,s.name,s.phonenumber,s.sex,s.age,x.adddate FROM t_xkb x JOIN t_student s ON x.sid=s.id WHERE x.cid = {}".format(
-                id))
-        itemlist = [{'id': i[0],
-                     'name': i[1],
-                     'phonenumber': i[2],
-                     'sex': i[3],
-                     'age': i[4],
-                     'adddate': outstrtime(i[5])} for i in cursor.fetchall()]
+        if request.method == 'GET':
+            data = db.select(
+                "SELECT x.id,s.name,s.phonenumber,s.sex,s.age,x.adddate FROM t_xkb x JOIN t_student s ON x.sid=s.id WHERE x.cid = {}".format(
+                    id))
+            itemlist = [{'id': i[0],
+                         'name': i[1],
+                         'phonenumber': i[2],
+                         'sex': i[3],
+                         'age': i[4],
+                         'adddate': outstrtime(i[5])} for i in data]
 
-        return render_template('webclassid.html', itemlist=itemlist)
+            data = db.select("SELECT pageurl FROM t_class WHERE id = {}".format(id))
+            urldict = {'id': id, 'url': data[0][0]}
+
+            return render_template('webclassid.html', itemlist=itemlist, urldict=urldict)
+        if request.method == 'POST':
+            db.update("UPDATE t_class SET pageurl = '{}' WHERE id = {}".format(request.form['url'], id))
+            return redirect('/webclass/' + id)
+
     else:
         return abort(404)
 
@@ -269,8 +275,7 @@ def webclassid(id):
 @app.route('/webcdels/<xid>', methods=['DELETE'])
 def webcdels(xid):
     if checkkey() == True:
-        cursor.execute('DELETE FROM t_xkb WHERE id = {}'.format(xid))
-        db.commit()
+        db.delete('DELETE FROM t_xkb WHERE id = {}'.format(xid))
         return ''
     else:
         return abort(404)
@@ -282,11 +287,10 @@ def webaddclass():
         if request.method == 'GET':
             return render_template('webaddclass.html')
         if request.method == 'POST':
-            cursor.execute(
-                "INSERT INTO t_class(name,address,date,time,adddate) VALUE ('{}','{}','{}','{}','{}')".format(
+            db.insert(
+                "INSERT INTO t_class(name,address,date,time,adddate,money) VALUE ('{}','{}','{}','{}','{}','{}')".format(
                     request.form['name'], request.form['address'], request.form['date'], request.form['time'],
-                    time.time()))
-            db.commit()
+                    time.time(), request.form['money']))
             return redirect('/webclass')
     else:
         return abort(404)
@@ -295,8 +299,7 @@ def webaddclass():
 @app.route('/webdeleteclass/<id>', methods=['GET'])
 def webdeleteclass(id):
     if checkkey() == True:
-        cursor.execute("DELETE FROM t_class WHERE id = {}".format(id))
-        db.commit()
+        db.delete("DELETE FROM t_class WHERE id = {}".format(id))
         return redirect('/webclass')
     else:
         return abort(404)
@@ -307,15 +310,48 @@ def webdatashow():
     return render_template('webdatashow.html', itemlist=selectclass())
 
 
+@app.route('/webinfopage', methods=['GET', 'POST'])
+def webinfopage():
+    if checkkey() == True:
+        if request.method == 'GET':
+            data = db.select("SELECT page,url FROM t_infopage")
+            pageurl = {}
+            for i in data:
+                pageurl[i[0]] = i[1]
+
+            return render_template('webinfopage.html', pageurl=pageurl)
+
+        if request.method == 'POST':
+            rdata = dict(request.form)
+            # print rdata.keys()[0]
+            # print rdata.values()[0][0]
+
+            db.update(
+                "UPDATE t_infopage SET url = '{1}' WHERE page = '{0}'".format(rdata.keys()[0], rdata.values()[0][0]))
+            return redirect('/webinfopage')
+    else:
+        return abort(404)
+
+
+@app.route('/wxinfopage', methods=['GET'])
+def wxinfopage():
+    data = db.select("SELECT page,url FROM t_infopage")
+    pageurl = {}
+    for i in data:
+        pageurl[i[0]] = i[1]
+
+    return jsonify(pageurl)
+
+
 @app.route('/wxlogin', methods=['GET'])
 def wxlogin():
-    cursor.execute(
+    data = db.select(
         "SELECT w.sid,w.gx,s.name,s.phonenumber FROM t_wxid w JOIN t_student s ON w.sid=s.id WHERE w.openid = '{}'".format(
             getopenid(request.args['code'])))
-    if cursor.rowcount == 0:
+    if len(data) == 0:
         return ''
     else:
-        data = cursor.fetchone()
+        data = data[0]
         key = uuid.uuid1()
         # print key
         r.set(key, data[0], ex=600)
@@ -326,26 +362,24 @@ def wxlogin():
 @app.route('/wxlogup', methods=['POST'])
 def wxlogup():
     rdata = json.loads(request.data)
-    cursor.execute(
+    db.insert(
         "INSERT INTO t_student(name,phonenumber,age,sex,adddate) VALUE ('{}','{}','{}','{}','{}')".format(rdata['name'],
                                                                                                           rdata[
                                                                                                               'phonenumber'],
                                                                                                           rdata['age'],
                                                                                                           rdata['sex'],
                                                                                                           time.time()))
-    db.commit()
-    cursor.execute("SELECT max(id) FROM t_student WHERE name = '{}'".format(rdata['name']))
-    sid = cursor.fetchone()[0]
+    data = db.select("SELECT max(id) FROM t_student WHERE name = '{}'".format(rdata['name']))
+    sid = data[0][0]
 
     if rdata['image'] != '':
         imgurl = rdata['image']
-        imgname = 'temp/' + imgurl[imgurl.rfind('tmp_',1):]
+        imgname = 'temp/' + imgurl[imgurl.rfind('tmp_', 1):]
         f = open(imgname, 'rb')
         img = f.read()
         f.close()
         os.remove(imgname)
-        cursor.execute("UPDATE t_student SET photo = '{}' WHERE id = {}".format(pymysql.escape_string(img), sid))
-        db.commit()
+        db.update("UPDATE t_student SET photo = '{}' WHERE id = {}".format(pymysql.escape_string(img), sid))
 
     wxid_add(sid, getopenid(rdata['code']), rdata['gx'])
 
@@ -355,13 +389,13 @@ def wxlogup():
 @app.route('/wxidadd', methods=['POST'])
 def wxidadd():
     rdata = json.loads(request.data)
-    cursor.execute(
+    data = db.select(
         "SELECT id FROM t_student WHERE name='{}' and phonenumber='{}'".format(rdata['name'], rdata['phonenumber']))
-    if cursor.rowcount == 0:
+    if len(data) == 0:
         return 'error'
     else:
-        sid = cursor.fetchone()
-        wxid_add(sid[0], getopenid(rdata['code']), rdata['gx'])
+        sid = data[0][0]
+        wxid_add(sid, getopenid(rdata['code']), rdata['gx'])
     return 'success'
 
 
@@ -370,10 +404,10 @@ def wxclass():
     if request.args:
         sid = keygetsid('GET')
         if sid:
-            cursor.execute("SELECT cid FROM t_xkb WHERE sid = '{}'".format(sid))
-            if cursor.rowcount == 0:
+            data = db.select("SELECT cid FROM t_xkb WHERE sid = '{}'".format(sid))
+            if len(data) == 0:
                 return 'none'
-            cidlist = [i[0] for i in cursor.fetchall()]
+            cidlist = [i[0] for i in data]
             return jsonify(selectclass(cidlist))
         else:
             return 'error'
@@ -386,11 +420,11 @@ def wxsaddc():
     if request.method == 'GET':
         sid = keygetsid('GET')
         if sid:
-            cursor.execute("SELECT cid FROM t_xkb WHERE sid = '{}'".format(sid))
-            if cursor.rowcount != 0:
-                cidlist = [i[0] for i in cursor.fetchall()]
-                cursor.execute("SELECT id FROM t_class")
-                alist = [i[0] for i in cursor.fetchall()]
+            data = db.select("SELECT cid FROM t_xkb WHERE sid = '{}'".format(sid))
+            if len(data) != 0:
+                cidlist = [i[0] for i in data]
+                data = db.select("SELECT id FROM t_class")
+                alist = [i[0] for i in data]
 
                 lostlist = list(set(alist).difference(set(cidlist)))  # alist V blist X --> send add
                 if len(lostlist) == 0:
@@ -410,9 +444,8 @@ def wxsaddc():
                 if r.exists(sid):
                     cid = r.get(sid)
                     r.delete(sid)
-                    cursor.execute(
+                    db.insert(
                         "INSERT INTO t_xkb(sid,cid,adddate) VALUE ('{}','{}','{}')".format(sid, cid, time.time()))
-                    db.commit()
                     return 'success'
 
                 time.sleep(1)
@@ -429,10 +462,10 @@ def create_pay():
     '''
     sid = keygetsid('POST')
     if sid:
-        cid=json.loads(request.data)['cid']
-        cursor.execute("SELECT name,money FROM t_class WHERE id = {}".format(cid))
-        n, m = cursor.fetchone()
-        m=str(int(m)*100)
+        cid = json.loads(request.data)['cid']
+        data = db.select("SELECT name,money FROM t_class WHERE id = {}".format(cid))
+        n, m = data[0]
+        m = str(int(m) * 100)
 
         data = {
             'appid': appid,
@@ -470,8 +503,8 @@ def wxpay():
         f.write(json.dumps(data))
         f.close()
 
-        cursor.execute("SELECT sid FROM t_wxid WHERE openid = '{}'".format(data['openid']))
-        sid = cursor.fetchone()[0]
+        data = db.select("SELECT sid FROM t_wxid WHERE openid = '{}'".format(data['openid']))
+        sid = data[0][0]
         r.set(sid, data['attach'])
 
         # logging.info(xml_to_dict(request.data))

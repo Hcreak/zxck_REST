@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>智学创客管理WEB</title>
+    <link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav>
+        <ul class="nav nav-pills">
+            <li role="presentation"><a href="/">首页</a></li>
+            <li role="presentation"><a href="/webstudent">学生管理</a></li>
+            <li role="presentation"><a href="/webclass">课程管理</a></li>
+            <li role="presentation"><a href="/webdatashow" target="_blank">数据展示</a></li>
+            <li role="presentation"><a href="/webdatacompute">数据分析</a></li>
+            <li role="presentation" class="active"><a href="/webinfopage">小程序网页接口</a></li>
+        </ul>
+    </nav>
+
+    <form method="post" action="/webinfopage">
+        <div class="form-group">
+        <label for="exampleInputschool">学校简介页面</label>
+        <input type="text" class="form-control" id="exampleInputschool" name="school" placeholder="{{ pageurl['school'] }}">
+        </div>
+        <button type="submit" class="btn btn-default">Submit</button>
+    </form>
+    <form method="post" action="/webinfopage">
+        <div class="form-group">
+        <label for="exampleInputstudy">招生简介页面</label>
+        <input type="text" class="form-control" id="exampleInputstudy" name="study" placeholder="{{ pageurl['study'] }}">
+        </div>
+        <button type="submit" class="btn btn-default">Submit</button>
+    </form>
+    <form method="post" action="/webinfopage">
+        <div class="form-group">
+        <label for="exampleInputactivity">最新活动页面</label>
+        <input type="text" class="form-control" id="exampleInputactivity" name="activity" placeholder="{{ pageurl['activity'] }}">
+        </div>
+        <button type="submit" class="btn btn-default">Submit</button>
+    </form>
+</body>
+</html>
