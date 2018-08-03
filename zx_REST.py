@@ -78,19 +78,19 @@ def wxid_add(sid, openid, gx):
 def selectclass(cid='all'):
     if cid != 'all':
         # print cid
-        execstr = "SELECT c.id,c.name,c.address,c.date,c.time FROM t_class c WHERE " + (
+        execstr = "SELECT c.id,c.name,c.address,c.date,c.time FROM v_curclass c WHERE " + (
             ' or '.join('c.id=' + str(i) for i in cid))
         data = db.select(execstr)
-        print data
+        # print data
     else:
-        data = db.select("SELECT c.id,c.name,c.address,c.date,c.time,c.pageurl FROM t_class c")
+        data = db.select("SELECT c.id,c.name,c.address,c.date,c.time,c.pageurl FROM v_curclass c")
 
     itemlist = [{'id': i[0],
                  'name': i[1],
                  'address': i[2],
                  'date': i[3],
                  'time': i[4],
-                 'pageurl': '' if len(i)==5 else i[5]} for i in data]
+                 'pageurl': '' if len(i) == 5 else i[5]} for i in data]
     return itemlist
 
 
@@ -213,7 +213,7 @@ def webaddstudent():
 def websaddc(id):
     if checkkey() == True:
         if request.method == 'GET':
-            data = db.select("SELECT id,name,date FROM t_class")
+            data = db.select("SELECT id,name,date FROM v_curclass")
             itemlist = [{'id': i[0],
                          'name': i[1],
                          'date': i[2]} for i in data]
@@ -227,16 +227,42 @@ def websaddc(id):
         return abort(404)
 
 
+@app.route('/webteacher', methods=['GET', 'POST', 'DELETE'])
+def webteacher():
+    if checkkey() == True:
+        if request.method == 'GET':
+            data = db.select("SELECT id,name,adddate,openid FROM t_teacher")
+            itemlist = [{'id': i[0],
+                         'name': i[1],
+                         'adddate': outstrtime(i[2]),
+                         'openid': '' if len(i) == 3 else i[3]} for i in data]
+
+            return render_template('webteacher.html', itemlist=itemlist)
+        if request.method == 'POST':
+            db.insert("INSERT INTO t_teacher(name,adddate,pwkey) VALUE ('{}','{}','{}')".format(request.form['name'],
+                                                                                                time.time(),
+                                                                                                request.form['pwkey']))
+            return redirect('/webteacher')
+        if request.method == 'DELETE':
+            id = json.loads(request.form['id'])
+            db.delete('DELETE FROM t_teacher WHERE id = {}'.format(id))
+            return ''
+
+    else:
+        return abort(404)
+
+
 @app.route('/webclass', methods=['GET'])
 def webclass():
     if checkkey() == True:
         data = db.select(
-            "SELECT c.id,c.name,c.address,c.date,c.time,c.adddate,count(x.id),c.money FROM t_class c LEFT JOIN t_xkb x ON x.cid=c.id GROUP BY c.id")
+            "SELECT c.id,c.name,c.address,c.date_start,c.time_start,c.adddate,count(x.id),c.money,c.date_end,c.time_end FROM t_class c LEFT JOIN t_xkb x ON x.cid=c.id GROUP BY c.id")
+
         itemlist = [{'id': i[0],
                      'name': i[1],
                      'address': i[2],
-                     'date': i[3],
-                     'time': i[4],
+                     'date': str(i[3]) + ' - ' + str(i[8]),
+                     'time': str(i[4]) + ' - ' + str(i[9]),
                      'adddate': outstrtime(i[5]),
                      'money': i[7],
                      'sum': i[6]} for i in data]
@@ -260,12 +286,15 @@ def webclassid(id):
                          'age': i[4],
                          'adddate': outstrtime(i[5])} for i in data]
 
-            data = db.select("SELECT pageurl FROM t_class WHERE id = {}".format(id))
-            urldict = {'id': id, 'url': data[0][0]}
+            data = db.select("SELECT pageurl,tid FROM t_class WHERE id = {}".format(id))
+            classinfo = {'id': id, 'url': data[0][0], 'tid': data[0][1]}
 
-            return render_template('webclassid.html', itemlist=itemlist, urldict=urldict)
+            return render_template('webclassid.html', itemlist=itemlist, classinfo=classinfo)
         if request.method == 'POST':
-            db.update("UPDATE t_class SET pageurl = '{}' WHERE id = {}".format(request.form['url'], id))
+            rdata = dict(request.form)
+
+            # db.update("UPDATE t_class SET pageurl = '{}' WHERE id = {}".format(request.form['url'],  id))
+            db.update("UPDATE t_class SET {} = '{}' WHERE  id = {}".format(rdata.keys()[0], rdata.values()[0][0], id))
             return redirect('/webclass/' + id)
 
     else:
@@ -287,9 +316,14 @@ def webaddclass():
         if request.method == 'GET':
             return render_template('webaddclass.html')
         if request.method == 'POST':
+            date_start = request.form['date'][:10]
+            date_end = request.form['date'][13:]
+            time_start = request.form['time'][:8]
+            time_end = request.form['time'][11:]
+            # print date_start, date_end, time_start, time_end
             db.insert(
-                "INSERT INTO t_class(name,address,date,time,adddate,money) VALUE ('{}','{}','{}','{}','{}','{}')".format(
-                    request.form['name'], request.form['address'], request.form['date'], request.form['time'],
+                "INSERT INTO t_class(name,address,date_start,date_end,time_start,time_end,adddate,money) VALUE ('{}','{}','{}','{}','{}','{}','{}','{}')".format(
+                    request.form['name'], request.form['address'], date_start, date_end, time_start, time_end,
                     time.time(), request.form['money']))
             return redirect('/webclass')
     else:
@@ -374,7 +408,7 @@ def wxlogup():
 
     if rdata['image'] != '':
         imgurl = rdata['image']
-        imgname = 'temp/' + imgurl[imgurl.rfind('tmp_', 1):]
+        imgname = 'temp/' + imgurl[imgurl.rfind('tmp/') + 4:]
         f = open(imgname, 'rb')
         img = f.read()
         f.close()
@@ -530,6 +564,69 @@ def wxphoto():
         return ''
 
 
+@app.route('/wxtealogin', methods=['GET', 'POST'])
+def wxtealogin():
+    if request.method == 'GET':
+        data = db.select("SELECT id,name FROM t_teacher WHERE openid = '{}'".format(getopenid(request.args['code'])))
+
+        if len(data) == 0:
+            return ''
+        else:
+            tid = data[0][0]
+            name = data[0][1]
+            data = db.select("SELECT id FROM t_class WHERE tid = {}".format(tid))
+            if len(data) != 0:
+                cidlist = [i[0] for i in data]
+                clist = selectclass(cidlist)
+            else:
+                clist = ''
+            sres = {'tid': tid, 'name': name, 'clist': clist}
+            return jsonify(sres)
+
+    if request.method == 'POST':
+        rdata = json.loads(request.data)
+        data = db.select(
+            "SELECT id FROM t_teacher WHERE name='{}' and pwkey='{}'".format(rdata['name'], rdata['pwkey']))
+        if len(data) == 0:
+            return 'error'
+        else:
+            tid = data[0][0]
+            db.update("UPDATE t_teacher SET openid = '{}' WHERE id = {}".format(getopenid(rdata['code']), tid))
+        return 'success'
+
+
+@app.route('/wxteacomment', methods=['GET', 'POST'])
+def wxteacomment():
+    if request.method == 'GET':
+        data = db.select("SELECT id,name FROM v_xklist WHERE cid = '{}'".format(request.args['cid']))
+        return jsonify(data)
+    if request.method == 'POST':
+        curdate = time.strftime("%Y-%m-%d", time.localtime(time.time()))
+        res = json.loads(request.data)
+        cid = res['cid']
+        commentlist = res['commentlist']
+        for key, value in commentlist.items():
+            # print key,value
+            if value != '':
+                db.insert(
+                    "INSERT INTO t_comment(date,yes,comment,cid,sid) VALUE ('{}','1','{}','{}','{}')".format(curdate,
+                                                                                                             value, cid,
+                                                                                                             key))
+            else:
+                db.insert(
+                    "INSERT INTO t_comment(date,yes,cid,sid) VALUE ('{}','0','{}','{}')".format(curdate, cid, key))
+
+        return 'success'
+
+
+@app.route('/wxstucomment', methods=['GET'])
+def wxstucomment():
+    data = db.select("SELECT date,yes,comment FROM t_comment WHERE cid='{}' AND sid='{}'".format(request.args['cid'],
+                                                                                                 keygetsid('GET')))
+    print data
+    return jsonify(data)
+
+
 @app.route('/temp/<file>', methods=['GET'])
 def gettemp(file):
     path = "temp/{}".format(file)
@@ -540,6 +637,70 @@ def gettemp(file):
         return resp
     else:
         return ''
+
+
+# 以下为抽奖部分
+
+def getluckcur(openid):
+    data = db.select("SELECT COUNT(*) FROM t_luckcount WHERE S='{}'".format(openid))
+    num = int(data[0][0])
+    data = db.select("SELECT COUNT(*) FROM t_luckthing WHERE openid='{}'".format(openid))
+    num -= int(data[0][0])
+    return num
+
+
+@app.route('/wxgetluck', methods=['GET', 'POST'])
+def wxgetluck():
+    if request.method == 'GET':
+        openid = getopenid(request.args['code'])
+        data = db.select("SELECT COUNT(*) FROM t_luckphone  WHERE openid='{}'".format(openid))
+        if int(data[0][0]) != 0:
+            return jsonify({'num':getluckcur(openid),'openid':openid})
+        else:
+            return jsonify({'info': 'getphonenumber','openid':openid})
+    if request.method == 'POST':
+        res = json.loads(request.data)
+        openid = getopenid(res['code'])
+        db.insert("INSERT INTO t_luckphone(openid,phonenumber) VALUE('{}','{}')".format(openid, res['phonenumber']))
+        db.insert("INSERT INTO t_luckcount(S,J) VALUE('{}','{}')".format(openid, openid))
+        return 'success'
+
+
+@app.route('/wxsetluck', methods=['GET', 'POST'])
+def wxsetluck():
+    if request.method == 'GET':
+        openid = getopenid(request.args['code'])
+        lastid = request.args['lastid']
+        data = db.select("SELECT COUNT(*) FROM t_luckcount WHERE S='{}' AND J='{}'".format(lastid, openid))
+        if int(data[0][0]) == 0:
+            db.insert("INSERT INTO t_luckcount(S,J) VALUE('{}','{}')".format(lastid, openid))
+        return 'success'
+    if request.method == 'POST':
+        res = json.loads(request.data)
+        openid = getopenid(res['code'])
+        db.insert("INSERT INTO t_luckthing(openid,thing,uselog) VALUE('{}','{}',0)".format(openid, res['thing']))
+        return jsonify({'num':getluckcur(openid)})
+
+@app.route('/wxgetluckthing', methods=['GET'])
+def wxgetluckthing():
+    openid = getopenid(request.args['code'])
+    data=db.select("SELECT thing FROM t_luckthing WHERE openid='{}' AND uselog=0 AND thing != 'None'".format(openid))
+    thinglist=[i[0] for i in data]
+    return jsonify(thinglist)
+
+@app.route('/webluck', methods=['GET','POST'])
+def webluck():
+    if checkkey() == True:
+        if request.method=='GET':
+            data=db.select("SELECT id,phonenumber,thing,uselog FROM t_luckthing t JOIN t_luckphone p ON t.openid=p.openid")
+            thinglist=[list(i) for i in data]
+            # print thinglist
+            return render_template('webluck.html',itemlist=thinglist)
+        if request.method=='POST':
+            db.update("UPDATE t_luckthing SET uselog=1 WHERE id={}".format(request.form['id']))
+            return ''
+    else:
+        return abort(404)
 
 
 if __name__ == '__main__':

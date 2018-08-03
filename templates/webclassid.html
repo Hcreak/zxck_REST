@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/html">
 <head>
     <meta charset="UTF-8">
     <title>智学创客管理WEB</title>
@@ -18,16 +18,23 @@
         }
     </script>
 </head>
-<body>
+<br>
 
-<form method="post" action="/webclass/{{ urldict['id'] }}">
+<form method="post" action="/webclass/{{ classinfo['id'] }}">
     <div class="form-group">
     <label for="exampleInputurl">网页接口</label>
-    <input type="text" class="form-control" id="exampleInputurl" name="url" placeholder="{{ urldict['url'] }}">
+    <input type="text" class="form-control" id="exampleInputurl" name="pageurl" placeholder="{{ classinfo['url'] }}">
     </div>
     <button type="submit" class="btn btn-default">Submit</button>
 </form>
-
+<form method="post" action="/webclass/{{ classinfo['id'] }}">
+    <div class="form-group">
+    <label for="exampleInputtid">教师编号</label>
+    <input type="text" class="form-control" id="exampleInputtid" name="tid" placeholder="{{ classinfo['tid'] }}">
+    </div>
+    <button type="submit" class="btn btn-default">Submit</button>
+</form>
+<br>
 <table class="table table-hover">
     <thead>
     <tr>
@@ -58,6 +65,17 @@
         {% endfor %}
     {% endif %}
     </tbody>
+</table>
+<table class="table table-bordered">
+  <thead>
+    <tr>
+        <th>日期</th>
+
+    </tr>
+  </thead>
+  <tbody>
+
+  </tbody>
 </table>
 </body>
 </html>
