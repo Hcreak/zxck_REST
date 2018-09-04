@@ -31,8 +31,8 @@ randomkey = os.urandom(48)
 ###############
 # admin_username = 'admin'
 # admin_password = 'zhixuechuangke++'
-admin_username = '1'
-admin_password = '1'
+admin_username = 'zxck'
+admin_password = '***REMOVED***'
 
 # mysql config
 ###############
@@ -93,6 +93,24 @@ def selectclass(cid='all'):
                  'pageurl': '' if len(i) == 5 else i[5]} for i in data]
     return itemlist
 
+def selectclass_wx(cid='all'):
+    if cid != 'all':
+        # print cid
+        execstr = "SELECT c.id,c.name,c.address,c.date,c.time FROM v_wxsaddc c WHERE " + (
+            ' or '.join('c.id=' + str(i) for i in cid))
+        data = db.select(execstr)
+        # print data
+    else:
+        data = db.select("SELECT c.id,c.name,c.address,c.date,c.time,c.pageurl FROM v_wxsaddc c")
+
+    itemlist = [{'id': i[0],
+                 'name': i[1],
+                 'address': i[2],
+                 'date': i[3],
+                 'time': i[4],
+                 'pageurl': '' if len(i) == 5 else i[5]} for i in data]
+    return itemlist
+
 
 def keygetsid(method):
     if method == 'GET':
@@ -138,18 +156,26 @@ def webindex():
             return abort(404)
 
 
-@app.route('/webstudent', methods=['GET'])
+@app.route('/webstudent', methods=['GET','POST'])
 def webstudent():
     if checkkey() == True:
-        data = db.select("SELECT id,name,phonenumber,sex,age,adddate FROM t_student")
-        itemlist = [{'id': i[0],
-                     'name': i[1],
-                     'phonenumber': i[2],
-                     'sex': i[3],
-                     'age': i[4],
-                     'adddate': outstrtime(i[5])} for i in data]
+        if request.method=='GET':
+            data = db.select("SELECT id,name,phonenumber,sex,age,adddate FROM t_student")
+            itemlist = [{'id': i[0],
+                         'name': i[1],
+                         'phonenumber': i[2],
+                         'sex': i[3],
+                         'age': i[4],
+                         'adddate': outstrtime(i[5])} for i in data]
 
-        return render_template('webstudent.html', itemlist=itemlist)
+            return render_template('webstudent.html', itemlist=itemlist)
+
+        if request.method == 'POST':
+            db.insert(
+                "INSERT INTO t_student(name,phonenumber,sex,age,adddate) VALUE ('{}','{}','{}','{}','{}')".format(
+                    request.form['name'], request.form['phonenumber'], request.form['sex'], request.form['age'],
+                    time.time()))
+            return redirect('/webstudent')
     else:
         return abort(404)
 
@@ -194,26 +220,26 @@ def webdeletestudent(id):
         return abort(404)
 
 
-@app.route('/webaddstudent', methods=['GET', 'POST'])
-def webaddstudent():
-    if checkkey() == True:
-        if request.method == 'GET':
-            return render_template('webaddstudent.html')
-        if request.method == 'POST':
-            db.insert(
-                "INSERT INTO t_student(name,phonenumber,sex,age,adddate) VALUE ('{}','{}','{}','{}','{}')".format(
-                    request.form['name'], request.form['phonenumber'], request.form['sex'], request.form['age'],
-                    time.time()))
-            return redirect('/webstudent')
-    else:
-        return abort(404)
+# @app.route('/webaddstudent', methods=['GET', 'POST'])
+# def webaddstudent():
+#     if checkkey() == True:
+#         if request.method == 'GET':
+#             return render_template('webaddstudent.html')
+#         if request.method == 'POST':
+#             db.insert(
+#                 "INSERT INTO t_student(name,phonenumber,sex,age,adddate) VALUE ('{}','{}','{}','{}','{}')".format(
+#                     request.form['name'], request.form['phonenumber'], request.form['sex'], request.form['age'],
+#                     time.time()))
+#             return redirect('/webstudent')
+#     else:
+#         return abort(404)
 
 
 @app.route('/websaddc/<id>', methods=['GET', 'POST'])
 def websaddc(id):
     if checkkey() == True:
         if request.method == 'GET':
-            data = db.select("SELECT id,name,date FROM v_curclass")
+            data = db.select("SELECT id,name,date FROM v_wxsaddc")
             itemlist = [{'id': i[0],
                          'name': i[1],
                          'date': i[2]} for i in data]
@@ -252,22 +278,36 @@ def webteacher():
         return abort(404)
 
 
-@app.route('/webclass', methods=['GET'])
+@app.route('/webclass', methods=['GET','POST'])
 def webclass():
     if checkkey() == True:
-        data = db.select(
-            "SELECT c.id,c.name,c.address,c.date_start,c.time_start,c.adddate,count(x.id),c.money,c.date_end,c.time_end FROM t_class c LEFT JOIN t_xkb x ON x.cid=c.id GROUP BY c.id")
+        if request.method=='GET':
+            data = db.select(
+                "SELECT c.id,c.name,c.address,c.date_start,c.time_start,c.adddate,count(x.id),c.money,c.date_end,c.time_end FROM t_class c LEFT JOIN t_xkb x ON x.cid=c.id GROUP BY c.id")
 
-        itemlist = [{'id': i[0],
-                     'name': i[1],
-                     'address': i[2],
-                     'date': str(i[3]) + ' - ' + str(i[8]),
-                     'time': str(i[4]) + ' - ' + str(i[9]),
-                     'adddate': outstrtime(i[5]),
-                     'money': i[7],
-                     'sum': i[6]} for i in data]
+            itemlist = [{'id': i[0],
+                         'name': i[1],
+                         'address': i[2],
+                         'date': str(i[3]) + ' - ' + str(i[8]),
+                         'time': str(i[4]) + ' - ' + str(i[9]),
+                         'adddate': outstrtime(i[5]),
+                         'money': i[7],
+                         'sum': i[6]} for i in data]
 
-        return render_template('webclass.html', itemlist=itemlist)
+            return render_template('webclass.html', itemlist=itemlist)
+
+        if request.method == 'POST':
+            date_start = request.form['date'][:10]
+            date_end = request.form['date'][13:]
+            time_start = request.form['time'][:8]
+            time_end = request.form['time'][11:]
+            # print date_start, date_end, time_start, time_end
+            db.insert(
+                "INSERT INTO t_class(name,address,date_start,date_end,time_start,time_end,adddate,money) VALUE ('{}','{}','{}','{}','{}','{}','{}','{}')".format(
+                    request.form['name'], request.form['address'], date_start, date_end, time_start, time_end,
+                    time.time(), request.form['money']))
+            return redirect('/webclass')
+
     else:
         return abort(404)
 
@@ -310,24 +350,24 @@ def webcdels(xid):
         return abort(404)
 
 
-@app.route('/webaddclass', methods=['GET', 'POST'])
-def webaddclass():
-    if checkkey() == True:
-        if request.method == 'GET':
-            return render_template('webaddclass.html')
-        if request.method == 'POST':
-            date_start = request.form['date'][:10]
-            date_end = request.form['date'][13:]
-            time_start = request.form['time'][:8]
-            time_end = request.form['time'][11:]
-            # print date_start, date_end, time_start, time_end
-            db.insert(
-                "INSERT INTO t_class(name,address,date_start,date_end,time_start,time_end,adddate,money) VALUE ('{}','{}','{}','{}','{}','{}','{}','{}')".format(
-                    request.form['name'], request.form['address'], date_start, date_end, time_start, time_end,
-                    time.time(), request.form['money']))
-            return redirect('/webclass')
-    else:
-        return abort(404)
+# @app.route('/webaddclass', methods=['GET', 'POST'])
+# def webaddclass():
+#     if checkkey() == True:
+#         if request.method == 'GET':
+#             return render_template('webaddclass.html')
+#         if request.method == 'POST':
+#             date_start = request.form['date'][:10]
+#             date_end = request.form['date'][13:]
+#             time_start = request.form['time'][:8]
+#             time_end = request.form['time'][11:]
+#             # print date_start, date_end, time_start, time_end
+#             db.insert(
+#                 "INSERT INTO t_class(name,address,date_start,date_end,time_start,time_end,adddate,money) VALUE ('{}','{}','{}','{}','{}','{}','{}','{}')".format(
+#                     request.form['name'], request.form['address'], date_start, date_end, time_start, time_end,
+#                     time.time(), request.form['money']))
+#             return redirect('/webclass')
+#     else:
+#         return abort(404)
 
 
 @app.route('/webdeleteclass/<id>', methods=['GET'])
@@ -442,11 +482,11 @@ def wxclass():
             if len(data) == 0:
                 return 'none'
             cidlist = [i[0] for i in data]
-            return jsonify(selectclass(cidlist))
+            return jsonify(selectclass_wx(cidlist))
         else:
             return 'error'
     else:
-        return jsonify(selectclass())
+        return jsonify(selectclass_wx())
 
 
 @app.route('/wxsaddc', methods=['GET', 'POST'])
@@ -464,9 +504,9 @@ def wxsaddc():
                 if len(lostlist) == 0:
                     return 'none'
 
-                addlist = selectclass(lostlist)
+                addlist = selectclass_wx(lostlist)
             else:
-                addlist = selectclass()
+                addlist = selectclass_wx()
 
             return jsonify(addlist)
         else:
@@ -577,7 +617,7 @@ def wxtealogin():
             data = db.select("SELECT id FROM t_class WHERE tid = {}".format(tid))
             if len(data) != 0:
                 cidlist = [i[0] for i in data]
-                clist = selectclass(cidlist)
+                clist = selectclass_wx(cidlist)
             else:
                 clist = ''
             sres = {'tid': tid, 'name': name, 'clist': clist}
@@ -623,7 +663,7 @@ def wxteacomment():
 def wxstucomment():
     data = db.select("SELECT date,yes,comment FROM t_comment WHERE cid='{}' AND sid='{}'".format(request.args['cid'],
                                                                                                  keygetsid('GET')))
-    print data
+    # print data
     return jsonify(data)
 
 
@@ -688,15 +728,30 @@ def wxgetluckthing():
     thinglist=[i[0] for i in data]
     return jsonify(thinglist)
 
-@app.route('/webluck', methods=['GET','POST'])
+@app.route('/wxgetlucklevel', methods=['GET'])
+def wxgetlucklevel():
+    data = db.select("SELECT text FROM t_lucklevel ORDER BY level")
+    lucklist = [i[0] for i in data]
+    return jsonify(lucklist)
+
+@app.route('/webluck', methods=['GET','POST','DELETE'])
 def webluck():
     if checkkey() == True:
         if request.method=='GET':
             data=db.select("SELECT id,phonenumber,thing,uselog FROM t_luckthing t JOIN t_luckphone p ON t.openid=p.openid")
             thinglist=[list(i) for i in data]
             # print thinglist
-            return render_template('webluck.html',itemlist=thinglist)
+            data=db.select("SELECT text FROM t_lucklevel ORDER BY level")
+            lucklist=[i[0] for i in data]
+            return render_template('webluck.html',itemlist=thinglist,luck=lucklist)
         if request.method=='POST':
+            rdata = dict(request.form)
+            for i in range(len(rdata)):
+                db.update("UPDATE t_lucklevel SET text='{1}' WHERE level={0}".format(rdata.keys()[i],rdata.values()[i][0]))
+                # print rdata.keys()[i]
+                # print rdata.values()[i]
+            return redirect('/webluck')
+        if request.method=='DELETE':
             db.update("UPDATE t_luckthing SET uselog=1 WHERE id={}".format(request.form['id']))
             return ''
     else:
